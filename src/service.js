@@ -32,6 +32,7 @@ export function createQuotaService({
   settings,
   secrets,
   queries,
+  detect = () => null,
   now = () => Date.now(),
   intervalMs = DEFAULT_INTERVAL_MS,
   setTimer = setTimeout,
@@ -44,6 +45,20 @@ export function createQuotaService({
   let again = false
   let disposed = false
   let started = false
+
+  function detected() {
+    try {
+      return detect() ?? null
+    } catch {
+      return null
+    }
+  }
+
+  function visible() {
+    const found = detected()
+    if (!found || !Array.isArray(found.providers)) return [...PROVIDERS]
+    return PROVIDERS.filter((id) => found.providers.includes(id))
+  }
 
   function platform() {
     return settings.get().glmPlatform
@@ -164,7 +179,7 @@ export function createQuotaService({
   function refreshAll() {
     if (disposed) return Promise.resolve()
     if (batch) return batch
-    batch = Promise.all(PROVIDERS.map((id) => refreshOne(id))).finally(() => {
+    batch = Promise.all(visible().map((id) => refreshOne(id))).finally(() => {
       batch = null
       if (again && !disposed) {
         again = false
@@ -196,8 +211,11 @@ export function createQuotaService({
       const stored = cache.get(keyFor(id, current.glmPlatform))
       byId[id] = stored ? { ...stored, windows: stored.windows.map((item) => ({ ...item })) } : blank(id)
     }
+    const found = detected()
     return {
       exampleData: false,
+      detected: found ? { routes: [...found.routes], providers: visible() } : null,
+      visible: visible(),
       glmPlatform: current.glmPlatform,
       glmKeyStored: current.glmKeyStored === true,
       opencodeKeyStored: current.opencodeKeyStored === true,

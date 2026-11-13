@@ -4,6 +4,7 @@ import path from 'node:path'
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { commandDefinition } from './src/commands.js'
+import { detectProviders } from './src/detect.js'
 import { bindHostPower, bindPowerMonitor } from './src/power.js'
 import { queryClaude } from './src/providers/claude.js'
 import { queryCodex } from './src/providers/codex.js'
@@ -104,6 +105,7 @@ export function createWiredService(config = {}) {
     settings,
     secrets,
     queries,
+    detect: config.detect,
     now: config.now,
     intervalMs: config.intervalMs,
     setTimer: config.setTimer,
@@ -115,7 +117,7 @@ export const inject = ['commands']
 
 /** Host entry. The five-minute refresh stays in memory. Sidebar reads use the quota remote, not the session command. */
 export function apply(ctx, config = {}) {
-  const service = createWiredService(config)
+  const service = createWiredService({ ...config, detect: () => detectProviders(ctx) })
   const remote = registerQuotaRemote(ctx, service, config.now)
   const definition = commandDefinition(service)
   if (typeof ctx?.inject === 'function') {

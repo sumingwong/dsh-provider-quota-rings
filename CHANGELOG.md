@@ -1,5 +1,30 @@
 # 更新记录
 
+## 0.1.11
+
+侧栏改成双环加供应商标志，只列本机配置过的提供商，并补上设置页。
+
+### 双环与标志
+
+- 内环画最短周期（如 5 小时），外环画最长周期（如 1 周）；只有一个周期时只画外环。中心是供应商标志：Codex、Claude 用 simple-icons 的单色路径，Grok、OpenCode Go、GLM 是手绘线条。
+- 没有数字的周期保留虚线轨道，不画弧。之前占位环（宿主返回 `fraction: null`）会画出实线轨道，看起来像 0%，现在用 `percentOf()` 判断，虚线轨道照旧。
+
+### 只显示已配置的提供商
+
+- 新增 `src/detect.js`：用 `ctx.get('llm', false)` 读 `LlmRuntime.listProviders()`，按路由名（`codex`、`anthropic`/`claude`、`opencode`、`zhipu`/`z-ai`/`glm`、`grok`/`xai`）对到五家。取不到 `llm`、抛错或返回值不是数组时返回 `null`，表示「不知道」，此时不隐藏任何人。
+- `snapshot()` 多返回 `detected`（命中的路由）与 `visible`（要显示的行）；`toDisplay()` 只给 `visible` 生成 rows。`refreshAll` 也只刷这几家，不再为没配置的提供商起请求。
+- 本机实测：路由是 `deepseek-official`、`deepseek-account`、`strata`、`opencode-go`、`agentspace`、`openai-codex`，映射后只出 Codex 与 OpenCode Go 两组环。
+
+### 设置页
+
+- 注册 `settings.section`（order 60，标题「额度圆环」）和 `settings.section.icon`。页内四段：实时读取开关、检测到的路由、当前显示的每组环与状态（可刷新、可停用）、GLM 与 OpenCode Go 的密钥输入（只在钥匙串里落盘，不回显）。
+- 侧栏与设置页共用同一份内存状态，开一次读五分钟内复用，不用两边各打一次接口。
+
+### 其他
+
+- 侧栏状态句继续放在视觉隐藏的 `aria-live` 区，不占环旁边的宽度。
+- `tests/client.test.mjs` 按新界面重写（自带 mini-React，展开纯函数子组件后断言真实 SVG 属性）；`tests/remote.test.mjs` 的方法列表补上 `setLiveReads`。`node --test tests/*.test.mjs` 60 项通过。
+
 ## 0.1.10
 
 修好了实机上的两个问题：侧栏不出现圆环，以及出现之后五个环全是 `?`。

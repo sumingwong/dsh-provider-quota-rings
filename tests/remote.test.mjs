@@ -75,7 +75,7 @@ test('an empty session can read the remote and the read does not call commands.e
   assert.equal(remote.typertRemote.namespace, 'quotaRings')
   const marker = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(remote), REMOTE_METHOD_MARKER).value
   assert.equal(marker.version, 1)
-  assert.deepEqual(marker.methods.map((item) => item.method), ['read', 'refresh', 'setDisabled', 'setPlatform', 'storeGlmKey', 'storeOpenCodeKey'])
+  assert.deepEqual(marker.methods.map((item) => item.method), ['read', 'refresh', 'setDisabled', 'setPlatform', 'storeGlmKey', 'storeOpenCodeKey', 'setLiveReads'])
   for (const item of marker.methods) assert.equal(item.invocation.kind, 'direct')
   const proto = Object.getPrototypeOf(remote)
   assert.deepEqual(parameterNames(proto.read), ['signal'])

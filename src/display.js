@@ -113,7 +113,10 @@ export function hoverText(row) {
 }
 
 export function toDisplay(snapshot, now = Date.now()) {
-  const rows = PROVIDERS.map((id) => {
+  const visible = Array.isArray(snapshot.visible)
+    ? PROVIDERS.filter((id) => snapshot.visible.includes(id))
+    : [...PROVIDERS]
+  const rows = visible.map((id) => {
     const row = snapshot.byId?.[id] ?? { status: 'unknown', windows: [] }
     const platformLabel = id === 'glm' ? (snapshot.glmPlatform === 'zai' ? 'Z.AI' : '智谱') : null
     const disabled = row.status === 'disabled'
@@ -158,6 +161,8 @@ export function toDisplay(snapshot, now = Date.now()) {
   })
   return {
     exampleData: false,
+    detected: snapshot.detected ?? null,
+    visible,
     glmPlatform: snapshot.glmPlatform ?? 'zhipu',
     glmKeyStored: snapshot.glmKeyStored === true,
     opencodeKeyStored: snapshot.opencodeKeyStored === true,
