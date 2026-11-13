@@ -3,6 +3,8 @@ window.__ModuleLoader__.load({
   factory(require) {
     const React = require('react')
     const h = React.createElement
+    let ReactDOM = null
+    try { ReactDOM = require('react-dom') ?? null } catch { ReactDOM = null }
 
     const ACCENT = '#12a15b'
     const TRACK = '#e6e3dd'
@@ -33,6 +35,8 @@ window.__ModuleLoader__.load({
         opencodeLabel: 'OpenCode Go 密钥（只进钥匙串，不要打在对话里）',
         timeUnknown: '时间未知',
         resetPrefix: '距重置',
+        remainingPrefix: '剩余',
+        usageTitle: '用量',
         ringHint: '圆环越满，剩余越多。内环是最短的周期，外环是最长的周期。',
         sectionLabel: '额度圆环',
         settingsIntro: '侧栏只显示本机 DSH 已配置模型路由的提供商。',
@@ -71,6 +75,8 @@ window.__ModuleLoader__.load({
         opencodeLabel: 'OpenCode Go key (keychain only, not chat)',
         timeUnknown: 'time unknown',
         resetPrefix: 'Resets in',
+        remainingPrefix: 'left',
+        usageTitle: 'Usage',
         ringHint: 'A fuller ring means more remaining. The inner ring is the shortest period, the outer ring the longest.',
         sectionLabel: 'Quota rings',
         settingsIntro: 'The sidebar only shows providers whose model route is configured in this DSH install.',
@@ -358,83 +364,83 @@ window.__ModuleLoader__.load({
     const CLIENT_SYNC_MS = 5 * 60 * 1000
     const CARD_OVERLAP_PX = 8
 
-    function card(row, copy, anchor) {
+    function overlay(node) {
+      try {
+        if (ReactDOM && typeof ReactDOM.createPortal === 'function' && typeof document !== 'undefined' && document.body) {
+          return ReactDOM.createPortal(node, document.body)
+        }
+      } catch { /* portal unavailable - render inline */ }
+      return node
+    }
+
+    const CARD_WIDTH = 300
+
+    function usageRow(window, index, copy) {
+      const pct = typeof window.fraction === 'number' && Number.isFinite(window.fraction)
+        ? Math.round(window.fraction * 100)
+        : null
+      return h('div', {
+        key: `${window.label}-${index}`,
+        'data-usage-row': window.scope ?? '',
+        'data-window': window.label,
+        style: { display: 'grid', gridTemplateColumns: 'auto minmax(44px, 1fr) auto auto', alignItems: 'center', gap: 8, padding: '3px 0', fontSize: 12 },
+      },
+        h('span', { style: { color: MUTED, whiteSpace: 'nowrap' } }, window.periodText || window.scopeText || copy.unknown),
+        h('span', {
+          'data-remaining-bar': pct == null ? 'unknown' : String(pct),
+          style: { display: 'block', height: 5, borderRadius: 99, background: '#ece7e1', overflow: 'hidden' },
+        }, pct == null ? null : h('span', { style: { display: 'block', height: '100%', width: `${pct}%`, background: ACCENT, borderRadius: 99 } })),
+        h('span', { 'data-remaining': pct == null ? 'unknown' : String(pct), style: { fontWeight: 600, whiteSpace: 'nowrap' } }, pct == null ? copy.unknown : `${copy.remainingPrefix} ${pct}%`),
+        h('span', { 'data-reset': String(window.resetDistanceText || ''), style: { color: MUTED, fontSize: 11, whiteSpace: 'nowrap' } }, window.resetDistanceText || ''))
+    }
+
+    function card(row, copy, anchor, enter, leave) {
       const fixed = anchor?.id === row.id && typeof anchor.top === 'number' && typeof anchor.left === 'number'
-      const top = fixed ? Math.max(8, anchor.top + CARD_OVERLAP_PX) : undefined
       const viewportWidth = typeof window !== 'undefined' && Number.isFinite(window.innerWidth) && window.innerWidth > 0
         ? window.innerWidth
         : null
-      const cardWidth = viewportWidth == null ? null : Math.min(280, viewportWidth * 0.7)
-      const maxLeft = viewportWidth == null || cardWidth == null ? null : Math.max(8, viewportWidth - cardWidth - 8)
-      const left = fixed
-        ? (maxLeft == null ? Math.max(8, anchor.left) : Math.min(Math.max(8, anchor.left), maxLeft))
-        : 0
+      const viewportHeight = typeof window !== 'undefined' && Number.isFinite(window.innerHeight) && window.innerHeight > 0
+        ? window.innerHeight
+        : null
+      let left = 8
+      let top = 8
+      if (fixed) {
+        const rightSide = anchor.left + Math.max(28, anchor.width || 40) + CARD_OVERLAP_PX
+        left = viewportWidth == null ? rightSide : Math.max(8, Math.min(rightSide, viewportWidth - CARD_WIDTH - 8))
+        top = Math.max(8, anchor.top - 10)
+        if (viewportHeight != null) top = Math.min(top, Math.max(8, viewportHeight - 200))
+      }
+      const windows = row.windows ?? []
+      const known = windows.some((window) => typeof window.fraction === 'number' && Number.isFinite(window.fraction))
       return h('div', {
         'data-hover-card': row.id,
-        'data-card-position': fixed ? 'fixed' : 'absolute',
-        'data-overlap': String(CARD_OVERLAP_PX),
         role: 'tooltip',
-        tabIndex: 0,
+        onMouseEnter: enter,
+        onMouseLeave: leave,
         style: {
           position: fixed ? 'fixed' : 'absolute',
           bottom: fixed ? undefined : `calc(100% - ${CARD_OVERLAP_PX}px)`,
           left,
-          top,
-          transform: fixed ? 'translateY(-100%)' : undefined,
-          zIndex: 40,
-          width: 'min(280px, 70vw)',
+          top: fixed ? top : undefined,
+          zIndex: 60,
+          width: `min(${CARD_WIDTH}px, 86vw)`,
           maxHeight: '60vh',
           overflow: 'auto',
           background: '#fff',
           color: INK,
           border: '1px solid #e4ddd4',
           borderRadius: 12,
-          boxShadow: '0 8px 24px rgba(40, 30, 20, 0.12)',
+          boxShadow: '0 10px 28px rgba(40, 30, 20, 0.14)',
           padding: '10px 12px',
         },
-      }, h('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
-        h(BrandIcon, { id: row.id, size: 16 }),
-        h('strong', null, row.label),
-        row.platformLabel ? h('span', null, row.platformLabel) : null),
-      h('p', { 'data-card-status': '1', style: { margin: '6px 0', fontSize: 12 } }, row.statusText),
-      h('p', { 'data-card-rings': '1', style: { margin: '6px 0', fontSize: 12, color: MUTED } }, ringWords(row, copy)),
-      (row.windows ?? []).map((window, index) => {
-        const known = typeof window.fraction === 'number' && Number.isFinite(window.fraction)
-        return h('div', {
-          key: `${window.label}-${index}`,
-          'data-window': window.label,
-          'data-scope': window.scope ?? '',
-          style: { marginTop: 8 },
-        }, h('div', { style: { display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12 } },
-          h('span', null, `${window.scopeText || copy.unknown} · ${window.label}`),
-          h('span', { 'data-remaining': window.remainingText || copy.unknown }, window.remainingText || copy.unknown)),
-        h('span', {
-          'data-remaining-bar': known ? String(window.fraction) : 'unknown',
-          style: { display: 'block', height: 6, background: '#ece7e1', borderRadius: 99, overflow: 'hidden', margin: '4px 0' },
-        }, known ? h('span', {
-          style: { display: 'block', width: `${Math.round(window.fraction * 100)}%`, height: '100%', background: ACCENT },
-        }) : null),
-        h('div', { style: { fontSize: 12, color: MUTED } }, `${copy.resetPrefix} ${window.resetDistanceText || copy.unknown}`),
-        window.showQuantity ? h('div', { 'data-quantity': '1', style: { fontSize: 12 } }, window.quantityText) : null)
-      }),
-      (row.windows ?? []).length === 0 ? h('p', null, copy.emptyWindows) : null)
-    }
-
-    function bridge(row, anchor) {
-      const fixed = anchor?.id === row.id && typeof anchor.top === 'number' && typeof anchor.left === 'number'
-      return h('div', {
-        'data-hover-bridge': row.id,
-        'aria-hidden': 'true',
-        style: {
-          position: fixed ? 'fixed' : 'absolute',
-          left: fixed ? Math.max(8, anchor.left) : 0,
-          top: fixed ? Math.max(0, anchor.top - 2) : undefined,
-          bottom: fixed ? undefined : '100%',
-          width: fixed ? Math.max(28, anchor.width || 40) : '100%',
-          height: 12,
-          background: 'transparent',
-        },
-      })
+      },
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 } },
+          h(BrandIcon, { id: row.id, size: 16 }),
+          h('strong', { style: { fontSize: 13 } }, row.label),
+          h('span', { style: { marginLeft: 'auto', fontSize: 11, color: MUTED } }, copy.usageTitle)),
+        known ? windows.map((window, index) => usageRow(window, index, copy)) : null,
+        known ? null : h('p', { 'data-card-status': '1', style: { margin: 0, fontSize: 11, color: MUTED } }, row.statusText),
+        known ? h('p', { 'data-card-status': '1', style: { margin: '6px 0 0', fontSize: 11, color: MUTED } }, row.statusText) : null)
     }
 
     return {
@@ -596,23 +602,24 @@ window.__ModuleLoader__.load({
           const [openId, setOpenId] = React.useState(null)
           const [glmValue, setGlmValue] = React.useState('')
           const [openValue, setOpenValue] = React.useState('')
-          const dialogRef = React.useRef(null)
+          const hideTimer = React.useRef(null)
 
           React.useEffect(() => {
             if (!alive) return undefined
             void run({ kind: 'read' })
             const timer = setInterval(() => { void run({ kind: 'read', silent: true }) }, CLIENT_SYNC_MS)
-            return () => clearInterval(timer)
+            return () => {
+              clearInterval(timer)
+              if (hideTimer.current) clearTimeout(hideTimer.current)
+            }
           }, [])
 
           React.useEffect(() => {
-            const dialog = dialogRef.current
-            if (!dialog) return
-            if (openId && typeof dialog.showModal === 'function') {
-              if (!dialog.open) dialog.showModal()
-            } else if (!openId && typeof dialog.close === 'function' && dialog.open) {
-              dialog.close()
-            }
+            if (!openId) return undefined
+            if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return undefined
+            const onKey = (event) => { if (event.key === 'Escape') setOpenId(null) }
+            window.addEventListener('keydown', onKey)
+            return () => window.removeEventListener('keydown', onKey)
           }, [openId])
 
           const rows = state.model?.rows ?? []
@@ -623,7 +630,13 @@ window.__ModuleLoader__.load({
             const rect = element && typeof element.getBoundingClientRect === 'function' ? element.getBoundingClientRect() : null
             if (rect) setAnchor({ id, top: Math.round(rect.top), left: Math.round(rect.left), width: Math.round(rect.width) })
           }
-          const hide = () => { setHoverId(null); setFocusId(null) }
+          const cancelHide = () => {
+            if (hideTimer.current) { clearTimeout(hideTimer.current); hideTimer.current = null }
+          }
+          const scheduleHide = () => {
+            if (hideTimer.current) clearTimeout(hideTimer.current)
+            hideTimer.current = setTimeout(() => { hideTimer.current = null; setHoverId(null); setFocusId(null) }, 160)
+          }
 
           const buttonStyle = { border: '1px solid ' + TRACK, background: 'transparent', color: INK, borderRadius: 8, padding: '4px 10px', cursor: 'pointer', fontSize: 12 }
           const bar = (window, index) => {
@@ -671,12 +684,11 @@ window.__ModuleLoader__.load({
                 key: row.id,
                 'data-provider-row': row.id,
                 style: { position: 'relative', display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 },
-                onMouseEnter: (event) => show(row.id, event.currentTarget),
-                onMouseLeave: hide,
+                onMouseEnter: (event) => { cancelHide(); show(row.id, event.currentTarget) },
+                onMouseLeave: scheduleHide,
                 onFocus: (event) => { setFocusId(row.id); show(row.id, event.currentTarget) },
                 onBlur: () => setFocusId(null),
               },
-                open ? bridge(row, anchor) : null,
                 h('button', {
                   type: 'button',
                   'data-ring-button': row.id,
@@ -687,7 +699,7 @@ window.__ModuleLoader__.load({
                 wide ? h('span', { style: { display: 'flex', flexDirection: 'column', minWidth: 0, lineHeight: 1.25 } },
                   h('span', { style: { fontSize: 11, color: INK, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, row.label),
                   h('span', { 'data-percent': percentLegend(row), style: { fontSize: 10, color: MUTED } }, percentLegend(row) || copy.unknown)) : null,
-                open ? card(row, copy, anchor) : null)
+                open ? overlay(card(row, copy, anchor, cancelHide, scheduleHide)) : null)
             }),
             rows.length === 0 ? h('span', { 'data-quota-empty': '1', style: { fontSize: 10, color: MUTED } }, state.model ? copy.noRings : copy.unknown) : null,
             h('span', {
@@ -696,39 +708,45 @@ window.__ModuleLoader__.load({
               'aria-live': 'polite',
               style: { position: 'absolute', width: 1, height: 1, margin: -1, padding: 0, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0 },
             }, state.notice),
-            h('dialog', {
-              ref: dialogRef,
-              'data-quota-dialog': '1',
-              onClose: () => setOpenId(null),
-              style: { border: '1px solid #e4ddd4', borderRadius: 14, padding: '14px 16px', background: '#fff', color: INK, boxShadow: '0 12px 32px rgba(40, 30, 20, 0.18)' },
+            openRow ? overlay(h('div', {
+              'data-quota-overlay': '1',
+              onClick: (event) => { if (event.target === event.currentTarget) setOpenId(null) },
+              style: { position: 'fixed', inset: 0, zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(28, 25, 22, 0.26)' },
             },
-              h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, width: 'min(340px, 82vw)' } },
-                h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-                  openRow ? h(BrandIcon, { id: openRow.id, size: 18 }) : null,
-                  h('strong', null, openRow?.label ?? copy.sectionLabel),
-                  h('span', { style: { marginLeft: 'auto', fontSize: 11, color: MUTED } }, openRow ? percentLegend(openRow) : '')),
-                h('p', { style: { margin: 0, fontSize: 12, color: MUTED } }, openRow?.statusText ?? copy.unavailable),
-                (openRow?.windows ?? []).map(bar),
-                h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 } },
-                  openRow ? h('button', { type: 'button', onClick: () => { void run({ kind: 'refresh', id: openRow.id }) }, style: buttonStyle }, copy.refresh) : null,
-                  openRow ? h('button', {
-                    type: 'button',
-                    onClick: () => { void run({ kind: openRow.status === 'disabled' ? 'enable' : 'disable', id: openRow.id }) },
-                    style: buttonStyle,
-                  }, openRow.status === 'disabled' ? copy.enable : copy.disable) : null,
-                  liveToggle ? h('button', {
-                    type: 'button',
-                    onClick: () => { void run({ kind: 'liveReads', value: state.model?.liveReads !== true }) },
-                    style: buttonStyle,
-                  }, state.model?.liveReads ? copy.liveOn : copy.liveOff) : null,
-                  h('button', { type: 'button', onClick: () => setOpenId(null), style: buttonStyle }, copy.close)),
-                liveToggle ? null : h('p', { style: { margin: 0, fontSize: 11, color: MUTED } }, copy.liveUnsupported),
-                h('div', { style: { display: 'flex', gap: 6, marginTop: 2 } },
-                  h('button', { type: 'button', onClick: () => { void run({ kind: 'platform', platform: 'zhipu' }) }, style: buttonStyle }, copy.zhipu),
-                  h('button', { type: 'button', onClick: () => { void run({ kind: 'platform', platform: 'zai' }) }, style: buttonStyle }, copy.zai)),
-                keyForm(copy.glmLabel, glmValue, setGlmValue, 'glm'),
-                keyForm(copy.opencodeLabel, openValue, setOpenValue, 'opencode'),
-                h('p', { style: { margin: 0, fontSize: 11, color: MUTED } }, copy.experimental))))
+              h('div', {
+                role: 'dialog',
+                'aria-modal': 'true',
+                'data-quota-dialog': '1',
+                style: { width: 'min(360px, 90vw)', maxHeight: '78vh', overflow: 'auto', background: '#fff', color: INK, border: '1px solid #e4ddd4', borderRadius: 14, padding: '14px 16px', boxShadow: '0 16px 40px rgba(40, 30, 20, 0.22)' },
+              },
+                h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
+                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                    h(BrandIcon, { id: openRow.id, size: 18 }),
+                    h('strong', null, openRow.label ?? copy.sectionLabel),
+                    h('span', { style: { marginLeft: 'auto', fontSize: 11, color: MUTED } }, percentLegend(openRow))),
+                  h('p', { style: { margin: 0, fontSize: 12, color: MUTED } }, openRow.statusText ?? copy.unavailable),
+                  (openRow.windows ?? []).map(bar),
+                  h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 } },
+                    h('button', { type: 'button', onClick: () => { void run({ kind: 'refresh', id: openRow.id }) }, style: buttonStyle }, copy.refresh),
+                    h('button', {
+                      type: 'button',
+                      onClick: () => { void run({ kind: openRow.status === 'disabled' ? 'enable' : 'disable', id: openRow.id }) },
+                      style: buttonStyle,
+                    }, openRow.status === 'disabled' ? copy.enable : copy.disable),
+                    liveToggle ? h('button', {
+                      type: 'button',
+                      onClick: () => { void run({ kind: 'liveReads', value: state.model?.liveReads !== true }) },
+                      style: buttonStyle,
+                    }, state.model?.liveReads ? copy.liveOn : copy.liveOff) : null,
+                    h('button', { type: 'button', 'data-dialog-close': '1', onClick: () => setOpenId(null), style: buttonStyle }, copy.close)),
+                  liveToggle ? null : h('p', { style: { margin: 0, fontSize: 11, color: MUTED } }, copy.liveUnsupported),
+                  h('div', { style: { display: 'flex', gap: 6, marginTop: 2 } },
+                    h('button', { type: 'button', onClick: () => { void run({ kind: 'platform', platform: 'zhipu' }) }, style: buttonStyle }, copy.zhipu),
+                    h('button', { type: 'button', onClick: () => { void run({ kind: 'platform', platform: 'zai' }) }, style: buttonStyle }, copy.zai)),
+                  keyForm(copy.glmLabel, glmValue, setGlmValue, 'glm'),
+                  keyForm(copy.opencodeLabel, openValue, setOpenValue, 'opencode'),
+                  h('p', { style: { margin: 0, fontSize: 11, color: MUTED } }, copy.experimental)))))
+            : null)
         }
 
         function QuotaSettings({ close }) {

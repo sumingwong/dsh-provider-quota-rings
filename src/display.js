@@ -8,6 +8,23 @@ export function scopeText(scope) {
   return '未知范围'
 }
 
+const MINUTE = 60 * 1000
+const HOUR = 60 * MINUTE
+const DAY = 24 * HOUR
+
+/** Short period label for one window: 5 小时 / 每周 / 每月. */
+export function periodText(window) {
+  const minutes = typeof window?.durationMs === 'number' && Number.isFinite(window.durationMs)
+    ? Math.round(window.durationMs / MINUTE)
+    : null
+  if (minutes == null || minutes <= 0) return String(window?.label ?? '').replace(/^[A-Za-z]+ /, '') || '周期未知'
+  if (minutes === 7 * 24 * 60) return '每周'
+  if (minutes === 30 * 24 * 60) return '每月'
+  if (minutes === 24 * 60) return '每天'
+  if (minutes % 60 === 0) { const hours = minutes / 60; return hours < 24 ? `${hours} 小时` : `${Math.round(hours / 24)} 天` }
+  return `${minutes} 分钟`
+}
+
 export function remainingText(window) {
   const fraction = remainingFraction(window)
   if (fraction == null) return '未知'
@@ -57,10 +74,10 @@ export function resetDistanceText(window, now = Date.now()) {
   const days = Math.floor(delta / day)
   const hours = Math.floor((delta % day) / hour)
   const minutes = Math.floor((delta % hour) / minute)
-  if (days > 0) return hours > 0 ? `${days}天${hours}小时` : `${days}天`
-  if (hours > 0) return minutes > 0 ? `${hours}小时${minutes}分` : `${hours}小时`
-  if (minutes > 0) return `${minutes}分`
-  return '不到1分'
+  if (days > 0) return hours > 0 ? `${days} 天 ${hours} 小时` : `${days} 天`
+  if (hours > 0) return minutes > 0 ? `${hours} 小时 ${minutes} 分` : `${hours} 小时`
+  if (minutes > 0) return `${minutes} 分`
+  return '不到 1 分钟'
 }
 
 function statusText(row) {
@@ -147,6 +164,7 @@ export function toDisplay(snapshot, now = Date.now()) {
           label: limitPublicText(redactText(window.label ?? '未命名窗口')),
           scope: window.scope ?? 'unknown',
           scopeText: scopeText(window.scope),
+          periodText: periodText(window),
           fraction: disabled ? null : remainingFraction(window),
           remainingText: disabled ? '未知' : remainingText(window),
           resetText: resetText(window),

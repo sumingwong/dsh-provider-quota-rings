@@ -90,7 +90,7 @@ test('an empty session can read the remote and the read does not call commands.e
   const row = dto.rows.find((item) => item.id === 'codex')
   assert.equal(row.windows.length, 3)
   assert.equal(row.rings.length, 2)
-  assert.equal(row.windows[0].resetDistanceText, '3小时5分')
+  assert.equal(row.windows[0].resetDistanceText, '3 小时 5 分')
   assert.equal(row.windows[0].remainingText, '62%')
   assert.equal(row.windows[1].resetDistanceText, '未知')
   assert.equal(row.windows[2].scopeText, '工具（月额度）')

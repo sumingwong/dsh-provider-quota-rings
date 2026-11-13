@@ -329,6 +329,9 @@ test('a stored key is never echoed back into the footer', async () => {
   })
   seen.mount()
   await flush()
+  // the key forms live in the detail panel, which opens from the ring button
+  findAll(seen.tree(), (node) => node.props?.['data-ring-button'] === 'opencode')[0].props.onClick()
+  await flush()
   const form = findAll(seen.tree(), (node) => node.type === 'form' && node.props?.key === 'opencode')[0]
   const input = findAll(form, (node) => node.type === 'input')[0]
   input.props.onChange({ target: { value: 'fixture-opencode-token' } })
@@ -338,4 +341,62 @@ test('a stored key is never echoed back into the footer', async () => {
   await flush()
   assert.equal(seen.actions.some((item) => item.method === 'storeOpenCodeKey' && item.secret === 'fixture-opencode-token'), true)
   assert.equal(JSON.stringify(seen.tree()).includes('fixture-opencode-token'), false)
+})
+
+test('hovering a ring shows the provider usage rows', async () => {
+  const windows = [
+    { label: 'Codex 300 分钟', scope: 'model', scopeText: '模型', periodText: '5 小时', fraction: 0.99, remainingText: '99%', resetText: '', resetDistanceText: '4 小时 33 分', showQuantity: false },
+    { label: 'Codex 10080 分钟', scope: 'model', scopeText: '模型', periodText: '每周', fraction: 0.7, remainingText: '70%', resetText: '', resetDistanceText: '2 天 11 小时', showQuantity: false },
+  ]
+  const seen = mountClient({
+    read: () => Promise.resolve(ok(snapshot([
+      { id: 'codex', label: 'Codex', status: 'fresh', statusText: '额度可读。', rings: [ring(0.99, '5小时'), ring(0.7, '1周')], windows },
+    ]))),
+  })
+  seen.mount()
+  await flush()
+  const row = findAll(seen.tree(), (node) => node.props?.['data-provider-row'] === 'codex')[0]
+  row.props.onMouseEnter({ currentTarget: { getBoundingClientRect: () => ({ top: 320, left: 24, width: 40, height: 40 }) } })
+  await flush()
+  const card = findAll(seen.tree(), (node) => node.props?.['data-hover-card'] === 'codex')[0]
+  assert.ok(card)
+  const remaining = findAll(card, (node) => node.props?.['data-remaining']).map((node) => node.props['data-remaining'])
+  assert.deepEqual(remaining, ['99', '70'])
+  const reset = findAll(card, (node) => node.props?.['data-reset']).map((node) => node.props['data-reset'])
+  assert.deepEqual(reset, ['4 小时 33 分', '2 天 11 小时'])
+  const text = JSON.stringify(card)
+  assert.match(text, /5 小时/)
+  assert.match(text, /每周/)
+  assert.match(text, /剩余 99%/)
+})
+
+test('the detail panel closes from its button and from the backdrop', async () => {
+  const seen = mountClient({
+    read: () => Promise.resolve(ok(snapshot([
+      {
+        id: 'codex',
+        label: 'Codex',
+        status: 'fresh',
+        statusText: '额度可读。',
+        rings: [ring(0.99, '5小时')],
+        windows: [{ label: 'Codex 300 分钟', scope: 'model', scopeText: '模型', periodText: '5 小时', fraction: 0.99, remainingText: '99%', resetText: '', resetDistanceText: '4 小时 33 分', showQuantity: false }],
+      },
+    ]))),
+  })
+  seen.mount()
+  await flush()
+  const ringButton = () => findAll(seen.tree(), (node) => node.props?.['data-ring-button'] === 'codex')[0]
+  const overlayNode = () => findAll(seen.tree(), (node) => node.props?.['data-quota-overlay'] === '1')[0]
+  ringButton().props.onClick()
+  await flush()
+  assert.ok(overlayNode())
+  findAll(seen.tree(), (node) => node.props?.['data-dialog-close'] === '1')[0].props.onClick()
+  await flush()
+  assert.equal(overlayNode(), undefined)
+  ringButton().props.onClick()
+  await flush()
+  const backdrop = overlayNode()
+  backdrop.props.onClick({ target: backdrop, currentTarget: backdrop })
+  await flush()
+  assert.equal(overlayNode(), undefined)
 })
