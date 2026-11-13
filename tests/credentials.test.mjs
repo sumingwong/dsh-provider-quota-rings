@@ -4,9 +4,12 @@ import {
   createHostCredentials,
   hostCredentialKey,
   pickHostRecordKey,
+  rankReferenceNames,
   referenceCandidates,
   referenceForRoute,
+  scoreReference,
   secretFromRecord,
+  storedReferenceNames,
 } from '../src/credentials.js'
 
 const OPENCODE = /opencode/i
@@ -49,11 +52,68 @@ test('a record secret is the key, else the provider environment value', () => {
   assert.equal(secretFromRecord(null), null)
 })
 
-function hostContext({ refs = {}, entries = [], records = {} } = {}) {
+test('a stored name claims a provider only through the provider words in it', () => {
+  const opencode = { provider: 'opencode', routes: ['opencode-go'] }
+  assert.ok(scoreReference('OPENCODE_GO_API_KEY', opencode) > scoreReference('OPENCODE_API_KEY', opencode))
+  assert.ok(scoreReference('OPENCODE_ZEN_API_KEY', opencode) > 0)
+  assert.equal(scoreReference('DEEPSEEK_API_KEY', opencode), 0)
+  assert.equal(scoreReference('GOOGLE_GO_KEY', opencode), 0)
+  assert.equal(scoreReference('', opencode), 0)
+  assert.ok(scoreReference('ZHIPUAI_API_KEY', { provider: 'glm', routes: ['glm-4.6'] }) > 0)
+})
+
+test('ranking keeps only claiming names, the most specific first', () => {
+  const stored = [
+    'DEEPSEEK_API_KEY',
+    'STRATA_API_KEY',
+    'OPENCODE_ZEN_API_KEY',
+    'OPENCODE_GO_API_KEY',
+    'AGENTSPACE_API_KEY',
+  ]
+  assert.deepEqual(rankReferenceNames(stored, { provider: 'opencode', routes: ['opencode-go'] }), [
+    'OPENCODE_GO_API_KEY',
+    'OPENCODE_ZEN_API_KEY',
+  ])
+  assert.deepEqual(rankReferenceNames(['GLM_KEY', 'OPENCODE_API_KEY'], { provider: 'glm', routes: [] }), ['GLM_KEY'])
+  assert.deepEqual(rankReferenceNames(null), [])
+})
+
+test('stored names are read from the provider snapshot', () => {
+  const store = new Map([
+    ['OPENCODE_GO_API_KEY', 'sk-a'],
+    ['OPENCODE_OAUTH_TOKEN', 'grant-ish'],
+    ['not a reference', 'sk-b'],
+    ['0BAD', 'sk-c'],
+  ])
+  assert.deepEqual(storedReferenceNames({ values: store }), ['OPENCODE_GO_API_KEY'])
+  assert.deepEqual(storedReferenceNames({ values: {} }), [])
+  assert.deepEqual(storedReferenceNames({ values: { keys: () => { throw new Error('wrapped') } } }), [])
+  assert.deepEqual(storedReferenceNames(null), [])
+})
+
+test('a stored spelling the route id does not derive is still found', async () => {
+  const store = new Map([['MY_OPENCODE_KEY', 'sk-renamed']])
+  const ctx = hostContext({ refs: { MY_OPENCODE_KEY: 'sk-renamed' }, store })
+  const host = createHostCredentials(ctx, { routes })
+  assert.equal(await host.find({ provider: 'opencode', pattern: OPENCODE }), 'sk-renamed')
+})
+
+test('the derived reference still wins over a stored near neighbour', async () => {
+  const store = new Map([
+    ['OPENCODE_GO_API_KEY', 'sk-route'],
+    ['OPENCODE_ZEN_API_KEY', 'sk-zen'],
+  ])
+  const ctx = hostContext({ refs: { OPENCODE_GO_API_KEY: 'sk-route', OPENCODE_ZEN_API_KEY: 'sk-zen' }, store })
+  const host = createHostCredentials(ctx, { routes })
+  assert.equal(await host.find({ provider: 'opencode', pattern: OPENCODE }), 'sk-route')
+})
+
+function hostContext({ refs = {}, entries = [], records = {}, store } = {}) {
   return {
     get(name) {
       if (name !== 'credentials') return undefined
       return {
+        ...(store ? { values: store } : {}),
         resolve: async (ref) => (ref in refs ? { value: refs[ref], source: 'file' } : undefined),
         listRecords: async () => entries,
         readRecord: async (key) => records[key],

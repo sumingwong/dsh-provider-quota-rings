@@ -4,11 +4,11 @@
 
 ## 密钥存储
 
-- GLM 和 OpenCode Go 的 token 有两个来源：用户自己填的只存在本机钥匙串，账户分别是 `glm` 和 `opencode`，服务固定为 `dsh-provider-quota-rings`；没填时回退到宿主凭据服务：先按匹配到的路由 id 推出引用名（`opencode-go` → `OPENCODE_GO_API_KEY`）调 `resolve`，再找 `llm-pi-ai/<路由 id>` 且类型为 `api-key` 的记录。只取字符串值。
+- GLM 和 OpenCode Go 的 token 有两个来源：用户自己填的只存在本机钥匙串，账户分别是 `glm` 和 `opencode`，服务固定为 `dsh-provider-quota-rings`；没填时回退到宿主凭据服务：先按匹配到的路由 id 推出引用名（`opencode-go` → `OPENCODE_GO_API_KEY`）调 `resolve`，再找 `llm-pi-ai/<路由 id>` 且类型为 `api-key` 的记录，最后按供应商词给宿主现有引用名打分取最佳匹配。只取字符串值。
 - `settings.json` 只保存 `glmKeyStored` / `opencodeKeyStored` 布尔值，不保存 token。
 - 客户端提交 token 时走 session-free remote，方法分别是 `storeGlmKey` 和 `storeOpenCodeKey`。命令结果、remote DTO、错误文本和设置文件在测试里都断言不含虚构 token。
 - 宿主凭据的值读出来只交给对应的额度请求头。不写盘、不进 `settings.json`、不进命令结果和 remote DTO、不进日志；凭据服务读不到、引用未设置或记录不是 `api-key` 时当作没有密钥。
-- 引用名是插件按路由 id 拼出来的，不是从宿主配置里读的：拼错的引用取不到值，宿主自己配了别的名字（`apiKeyEnv` 写别的）时这条回退就不会命中。
+- 引用名优先按路由 id 拼，不是从宿主配置里读的。拼出的名字和常见别名都没命中时，读宿主凭据服务实例上的引用名快照（`values` 这个 `Map` 的键），按供应商词打分取最佳匹配；只读名字，不取值、不复制、不写盘，取到的名字仍走 `resolve` 取密钥。宿主内部结构变了导致快照读不到时，这一步直接跳过，退回「按名字猜」，不报错、不记日志。
 - 不读取 `auth.json`、`.env`、环境变量里的服务商密钥，也不读取其他工具的凭据。
 
 ## macOS 助手
