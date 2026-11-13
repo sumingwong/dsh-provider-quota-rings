@@ -163,7 +163,7 @@ export async function queryGlm({ liveReads = false, platform = 'zhipu', token, h
     return { ok: false, code: 'live-reads-disabled', experimental: false, message: '未授权读取 GLM 订阅额度。' }
   }
   if (typeof token !== 'string' || token.length === 0) {
-    return { ok: false, code: 'needs-key', experimental: false, message: '钥匙串里没有 GLM 密钥。' }
+    return { ok: false, code: 'needs-key', experimental: false, message: '本地钥匙串和宿主凭据库里都没有 GLM 密钥。' }
   }
   let url
   try {

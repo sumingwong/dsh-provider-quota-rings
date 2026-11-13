@@ -100,7 +100,7 @@ export async function queryOpenCode({ liveReads = false, token, fetch: fetchImpl
       ok: false,
       code: 'needs-key',
       experimental: true,
-      message: '没有注入的 OpenCode 密钥。插件不读取 auth.json、环境变量或本机数据库。',
+      message: '本地钥匙串和宿主凭据库里都没有 OpenCode Go 密钥。插件不读取 auth.json、环境变量或本机数据库。',
     }
   }
   let url

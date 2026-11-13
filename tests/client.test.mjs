@@ -203,19 +203,19 @@ function mountClient({ read, locale = 'zh' }) {
     releases: () => releases,
     component: (name) => registrations.get(name)?.component,
     meta: (name) => registrations.get(name)?.meta,
-    mount(slot = 'sidebar.footer.action', props = { wide: true }) {
+    mount(slot = 'conversation.session.header.actions', props = {}) {
       return materialize(react.mount(this.component(slot), props))
     },
     tree() { return materialize(react.tree) },
   }
 }
 
-test('registers the footer, one settings page and its icon', () => {
+test('registers the header rings, one settings page and its icon', () => {
   const seen = mountClient({ read: () => Promise.resolve(ok(snapshot([]))) })
   seen.mount()
-  assert.deepEqual(seen.injected, ['sidebar.footer.action', 'settings.section', 'settings.section.icon'])
-  assert.equal(seen.meta('sidebar.footer.action').id, 'provider-quota-rings')
-  assert.equal(seen.meta('sidebar.footer.action').order, 40)
+  assert.deepEqual(seen.injected, ['conversation.session.header.actions', 'settings.section', 'settings.section.icon'])
+  assert.equal(seen.meta('conversation.session.header.actions').id, 'provider-quota-rings')
+  assert.equal(seen.meta('conversation.session.header.actions').order, 40)
   assert.equal(seen.meta('settings.section').id, 'provider-quota-rings')
   assert.equal(seen.meta('settings.section').order, 60)
   assert.equal(seen.meta('settings.section').label(), '额度圆环')
@@ -223,7 +223,7 @@ test('registers the footer, one settings page and its icon', () => {
   assert.equal(seen.contribution().package, 'dsh-provider-quota-rings')
 })
 
-test('the footer draws the short period inside and the long one outside', async () => {
+test('the header rings draw the short period inside and the long one outside', async () => {
   const seen = mountClient({
     read: () => Promise.resolve(ok(snapshot([
       { id: 'codex', label: 'Codex', status: 'fresh', statusText: '额度可读。', rings: [ring(0.99, '5小时'), ring(0.7, '1周')], windows: [] },
@@ -233,15 +233,16 @@ test('the footer draws the short period inside and the long one outside', async 
   seen.mount()
   await flush()
   const tree = seen.tree()
-  const root = findAll(tree, (node) => node.props?.['data-quota-rings'] === 'footer')[0]
+  const root = findAll(tree, (node) => node.props?.['data-quota-rings'] === 'header')[0]
   assert.equal(root.props['data-provider-count'], '2')
   const codex = findAll(tree, (node) => node.props?.['data-provider-ring'] === 'codex')[0]
   assert.equal(codex.props['data-inner'], '99')
   assert.equal(codex.props['data-outer'], '70')
   assert.match(codex.props['aria-label'], /5小时 99%/)
   assert.match(codex.props['aria-label'], /1周 70%/)
-  const legend = findAll(tree, (node) => node.props?.['data-percent'] === '99% · 70%')
-  assert.equal(legend.length, 1)
+  // the header shows rings only: no provider name, no percentage text
+  assert.equal(findAll(tree, (node) => node.props?.['data-percent']).length, 0)
+  assert.equal(JSON.stringify(tree).includes('OpenCode Go'), false)
   // an unknown period keeps the dashed tray and draws no arc
   const opencode = findAll(tree, (node) => node.props?.['data-provider-ring'] === 'opencode')[0]
   assert.equal(opencode.props['data-inner'], 'unknown')
@@ -262,7 +263,7 @@ test('a lone period stays on the outer ring', async () => {
   assert.equal(glm.props['data-outer'], '50')
 })
 
-test('only the rows the host detected reach the footer', async () => {
+test('only the rows the host detected reach the header', async () => {
   const seen = mountClient({
     read: () => Promise.resolve(ok(snapshot([
       { id: 'codex', label: 'Codex', status: 'fresh', statusText: '额度可读。', rings: [ring(0.9, '1周')], windows: [] },
@@ -316,7 +317,7 @@ test('the settings page lists the detected routes and each visible provider', as
   assert.equal(findAll(seen.tree(), (node) => node.props?.['data-quota-section'] === 'keys').length, 1)
 })
 
-test('a stored key is never echoed back into the footer', async () => {
+test('a stored key is never echoed back into the header', async () => {
   const seen = mountClient({
     read(_signal, action) {
       if (action.method === 'storeOpenCodeKey') {

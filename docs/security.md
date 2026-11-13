@@ -4,9 +4,11 @@
 
 ## 密钥存储
 
-- GLM 和 OpenCode Go 的 token 只存在本机钥匙串，账户分别是 `glm` 和 `opencode`，服务固定为 `dsh-provider-quota-rings`。
+- GLM 和 OpenCode Go 的 token 有两个来源：用户自己填的只存在本机钥匙串，账户分别是 `glm` 和 `opencode`，服务固定为 `dsh-provider-quota-rings`；没填时回退到宿主凭据服务：先按匹配到的路由 id 推出引用名（`opencode-go` → `OPENCODE_GO_API_KEY`）调 `resolve`，再找 `llm-pi-ai/<路由 id>` 且类型为 `api-key` 的记录。只取字符串值。
 - `settings.json` 只保存 `glmKeyStored` / `opencodeKeyStored` 布尔值，不保存 token。
 - 客户端提交 token 时走 session-free remote，方法分别是 `storeGlmKey` 和 `storeOpenCodeKey`。命令结果、remote DTO、错误文本和设置文件在测试里都断言不含虚构 token。
+- 宿主凭据的值读出来只交给对应的额度请求头。不写盘、不进 `settings.json`、不进命令结果和 remote DTO、不进日志；凭据服务读不到、引用未设置或记录不是 `api-key` 时当作没有密钥。
+- 引用名是插件按路由 id 拼出来的，不是从宿主配置里读的：拼错的引用取不到值，宿主自己配了别的名字（`apiKeyEnv` 写别的）时这条回退就不会命中。
 - 不读取 `auth.json`、`.env`、环境变量里的服务商密钥，也不读取其他工具的凭据。
 
 ## macOS 助手

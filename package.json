@@ -1,8 +1,8 @@
 {
   "name": "dsh-provider-quota-rings",
-  "version": "0.1.12",
+  "version": "0.1.15",
   "private": true,
-  "description": "DeepSeek Harness 侧栏底部的订阅额度圆环。独立实现，默认不读取账号。",
+  "description": "DeepSeek Harness 会话标题旁的订阅额度圆环。独立实现，默认不读取账号。",
   "type": "module",
   "license": "MIT",
   "engines": {
@@ -37,7 +37,7 @@
       "platform": "web",
       "immediately": true,
       "inject": [
-        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-conversation",
         "@deepseek-ai/dsh-api-remotes"
       ]
     }

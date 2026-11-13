@@ -4,7 +4,8 @@ import path from 'node:path'
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { commandDefinition } from './src/commands.js'
-import { detectProviders } from './src/detect.js'
+import { createHostCredentials } from './src/credentials.js'
+import { detectProviders, ROUTE_PATTERNS } from './src/detect.js'
 import { bindHostPower, bindPowerMonitor } from './src/power.js'
 import { queryClaude } from './src/providers/claude.js'
 import { queryCodex } from './src/providers/codex.js'
@@ -37,6 +38,27 @@ export function createWiredService(config = {}) {
     scriptPath: fs.existsSync(script) ? script : null,
     platform: config.platform,
   })
+  const hostToken = typeof config.hostToken === 'function' ? config.hostToken : null
+
+  /**
+   * The key for one provider: our own keychain entry first, then the one the
+   * host already stores for the model route the user configured. The second
+   * step is what keeps a working chat route from needing a second copy of its
+   * key pasted into the quota settings.
+   */
+  async function resolveToken({ stored, account, provider, pattern }) {
+    if (stored === true) {
+      const loaded = await secrets.get(account)
+      if (loaded?.ok && typeof loaded.secret === 'string' && loaded.secret.length > 0) return loaded.secret
+    }
+    if (!hostToken) return null
+    try {
+      const found = await hostToken({ provider, pattern })
+      if (typeof found === 'string' && found.length > 0) return found
+    } catch { /* the host credential store is optional */ }
+    return null
+  }
+
   const queries = {
     codex: ({ signal, liveReads }) => queryCodex({
       liveReads,
@@ -52,12 +74,13 @@ export function createWiredService(config = {}) {
     }),
     opencode: async ({ signal, liveReads }) => {
       if (!liveReads) return queryOpenCode({ liveReads: false })
-      if (settings.get().opencodeKeyStored !== true) return queryOpenCode({ liveReads: true })
-      const loaded = await secrets.get(OPENCODE_ACCOUNT)
-      if (!loaded?.ok || typeof loaded.secret !== 'string' || loaded.secret.length === 0) {
-        return { ok: false, code: 'needs-key', message: '钥匙串里没有 OpenCode Go 密钥。' }
-      }
-      const token = loaded.secret
+      const token = await resolveToken({
+        stored: settings.get().opencodeKeyStored === true,
+        account: OPENCODE_ACCOUNT,
+        provider: 'opencode',
+        pattern: ROUTE_PATTERNS.opencode,
+      })
+      if (!token) return queryOpenCode({ liveReads: true })
       try {
         return await queryOpenCode({
           liveReads: true,
@@ -75,13 +98,10 @@ export function createWiredService(config = {}) {
     },
     grok: () => queryGrok(),
     glm: async ({ signal, platform, liveReads }) => {
-      if (settings.get().glmKeyStored !== true) return queryGlm({ liveReads, platform, hasToken: false })
-      if (!liveReads) return queryGlm({ liveReads: false, platform, hasToken: true })
-      const loaded = await secrets.get(GLM_ACCOUNT)
-      if (!loaded?.ok || typeof loaded.secret !== 'string' || loaded.secret.length === 0) {
-        return { ok: false, code: 'needs-key', message: '钥匙串里没有 GLM 密钥。' }
-      }
-      const token = loaded.secret
+      const stored = settings.get().glmKeyStored === true
+      if (!liveReads) return queryGlm({ liveReads: false, platform, hasToken: stored })
+      const token = await resolveToken({ stored, account: GLM_ACCOUNT, provider: 'glm', pattern: ROUTE_PATTERNS.glm })
+      if (!token) return queryGlm({ liveReads: true, platform, hasToken: false })
       try {
         return await queryGlm({
           liveReads: true,
@@ -117,7 +137,12 @@ export const inject = ['commands']
 
 /** Host entry. The five-minute refresh stays in memory. Sidebar reads use the quota remote, not the session command. */
 export function apply(ctx, config = {}) {
-  const service = createWiredService({ ...config, detect: () => detectProviders(ctx) })
+  const hostCredentials = createHostCredentials(ctx, { routes: () => detectProviders(ctx)?.routes ?? [] })
+  const service = createWiredService({
+    ...config,
+    detect: () => detectProviders(ctx),
+    hostToken: config.hostToken ?? ((request) => hostCredentials.find(request)),
+  })
   const remote = registerQuotaRemote(ctx, service, config.now)
   const definition = commandDefinition(service)
   if (typeof ctx?.inject === 'function') {

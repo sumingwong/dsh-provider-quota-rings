@@ -49,6 +49,7 @@ window.__ModuleLoader__.load({
         ringsTitle: '当前圆环',
         noRings: '没有可显示的圆环。',
         keysTitle: '密钥',
+        hostKeys: '本地没填密钥时，会按聊天路由去用宿主已经存好的那把钥匙；这里填了就以这里的为准。',
         save: '保存',
         hint: '说明',
       },
@@ -89,6 +90,7 @@ window.__ModuleLoader__.load({
         ringsTitle: 'Current rings',
         noRings: 'No ring to show.',
         keysTitle: 'Keys',
+        hostKeys: 'With no key stored here, the key the host already holds for the same model route is used. A key typed here takes precedence.',
         save: 'Save',
         hint: 'Note',
       },
@@ -328,14 +330,14 @@ window.__ModuleLoader__.load({
       return [part(inner), part(outer)].filter(Boolean).join(' · ') || copy.unknown
     }
 
-    function ProviderRing({ row, copy }) {
+    function ProviderRing({ row, copy, size = 40 }) {
       const { inner, outer } = pair(row)
       const off = row.status === 'disabled'
       const color = off ? '#a8a29a' : ACCENT
       return h('svg', {
         viewBox: '0 0 40 40',
-        width: 40,
-        height: 40,
+        width: size,
+        height: size,
         role: 'img',
         'aria-label': `${row.label} ${ringWords(row, copy)}`,
         'data-provider-ring': row.id,
@@ -374,6 +376,7 @@ window.__ModuleLoader__.load({
     }
 
     const CARD_WIDTH = 300
+    const HEADER_RING_PX = 24
 
     function usageRow(window, index, copy) {
       const pct = typeof window.fraction === 'number' && Number.isFinite(window.fraction)
@@ -594,7 +597,7 @@ window.__ModuleLoader__.load({
           }
         }
 
-        function QuotaFooter({ wide = true }) {
+        function QuotaRings({ size = HEADER_RING_PX }) {
           const state = useQuota()
           const [hoverId, setHoverId] = React.useState(null)
           const [focusId, setFocusId] = React.useState(null)
@@ -674,16 +677,16 @@ window.__ModuleLoader__.load({
             h('button', { type: 'submit', style: buttonStyle }, copy.save))
 
           return h('div', {
-            'data-quota-rings': 'footer',
+            'data-quota-rings': 'header',
             'data-provider-count': String(rows.length),
-            style: { display: 'flex', flexDirection: 'column', gap: 6, padding: '6px 0', position: 'relative' },
+            style: { display: 'flex', alignItems: 'center', gap: 4, minWidth: 0, padding: '0 2px', position: 'relative' },
           },
             rows.map((row) => {
               const open = hoverId === row.id || focusId === row.id
               return h('div', {
                 key: row.id,
                 'data-provider-row': row.id,
-                style: { position: 'relative', display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 },
+                style: { position: 'relative', display: 'flex', alignItems: 'center', minWidth: 0 },
                 onMouseEnter: (event) => { cancelHide(); show(row.id, event.currentTarget) },
                 onMouseLeave: scheduleHide,
                 onFocus: (event) => { setFocusId(row.id); show(row.id, event.currentTarget) },
@@ -694,14 +697,10 @@ window.__ModuleLoader__.load({
                   'data-ring-button': row.id,
                   'aria-label': `${row.label} ${ringWords(row, copy)}`,
                   onClick: () => setOpenId(row.id),
-                  style: { border: 0, background: 'transparent', padding: 0, cursor: 'pointer', borderRadius: 999, lineHeight: 0 },
-                }, h(ProviderRing, { row, copy })),
-                wide ? h('span', { style: { display: 'flex', flexDirection: 'column', minWidth: 0, lineHeight: 1.25 } },
-                  h('span', { style: { fontSize: 11, color: INK, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, row.label),
-                  h('span', { 'data-percent': percentLegend(row), style: { fontSize: 10, color: MUTED } }, percentLegend(row) || copy.unknown)) : null,
+                  style: { border: 0, background: 'transparent', padding: 1, cursor: 'pointer', borderRadius: 999, lineHeight: 0, display: 'block' },
+                }, h(ProviderRing, { row, copy, size })),
                 open ? overlay(card(row, copy, anchor, cancelHide, scheduleHide)) : null)
             }),
-            rows.length === 0 ? h('span', { 'data-quota-empty': '1', style: { fontSize: 10, color: MUTED } }, state.model ? copy.noRings : copy.unknown) : null,
             h('span', {
               'data-notice': '1',
               role: 'status',
@@ -831,6 +830,7 @@ window.__ModuleLoader__.load({
                 }, row.status === 'disabled' ? copy.enable : copy.disable)))
               : [h('p', { key: 'empty', style: muted }, copy.noRings)]),
             section('keys', copy.keysTitle, [
+              h('p', { key: 'host', style: muted }, copy.hostKeys),
               keyForm('glm', copy.glmLabel, glmValue, setGlmValue),
               keyForm('opencode', copy.opencodeLabel, openValue, setOpenValue),
               h('div', { key: 'platform', style: { display: 'flex', gap: 6, marginTop: 2 } },
@@ -852,9 +852,9 @@ window.__ModuleLoader__.load({
             }))
         }
 
-        ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register(
-          { name: 'sidebar.footer.action', id: 'provider-quota-rings', order: 40 },
-          QuotaFooter,
+        ctx.slots.inject('conversation.session.header.actions', () => ctx.slots.register(
+          { name: 'conversation.session.header.actions', id: 'provider-quota-rings', order: 40 },
+          QuotaRings,
         ))
         ctx.slots.inject('settings.section', () => ctx.slots.register(
           { name: 'settings.section', id: 'provider-quota-rings', order: 60, label: () => copy.sectionLabel },

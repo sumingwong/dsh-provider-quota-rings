@@ -2,8 +2,9 @@ import { PROVIDERS } from './model.js'
 
 // Route ids are the DSH LLM adapter/provider keys (for example `opencode-go`,
 // `openai-codex`, `anthropic`). A quota provider is shown only when the host
-// actually has a matching model route configured.
-const ROUTE_PATTERNS = {
+// actually has a matching model route configured. The same patterns pick the
+// host credential record for a provider, so both decisions agree.
+export const ROUTE_PATTERNS = {
   codex: /codex/i,
   claude: /anthropic|claude/i,
   opencode: /opencode/i,

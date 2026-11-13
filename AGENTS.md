@@ -1,6 +1,6 @@
 # dsh-provider-quota-rings
 
-DeepSeek Harness 侧栏底部的订阅额度圆环插件：内环是最近一个周期（例如 5 小时），外环是最长的周期（例如一周），中心是供应商标志。安装、配置和数据结构见 [README.md](./README.md)。
+DeepSeek Harness 会话标题旁的订阅额度圆环插件：内环是最近一个周期（例如 5 小时），外环是最长的周期（例如一周），中心是供应商标志。标题栏只画环，用量在悬停卡片里。安装、配置和数据结构见 [README.md](./README.md)。
 
 ## Agent skills
 
