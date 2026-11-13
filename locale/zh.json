@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "订阅额度圆环",
+    "description": "侧栏底部显示 Codex、Claude、OpenCode Go、Grok 和 GLM。圆环越满表示剩余越多。Grok 只提供官网入口。"
+  }
+}

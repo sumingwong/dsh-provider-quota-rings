@@ -1,0 +1,3 @@
+- insert:
+    - id: provider-quota-rings
+      name: dsh-provider-quota-rings

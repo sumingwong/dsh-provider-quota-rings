@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>额度悬停卡示例</title>
+  <style>
+    body { margin: 0; min-height: 100vh; display: grid; place-items: end start; background: #f6f3ee; color: #1c1916; font: 14px/1.4 "Songti SC", serif; }
+    .banner { position: fixed; top: 12px; left: 12px; max-width: 420px; background: #fff8e8; border: 1px solid #e2c98a; border-radius: 10px; padding: 10px 12px; }
+    .dock { display: flex; gap: 16px; padding: 18px; align-items: end; }
+    .wrap { position: relative; }
+    .bridge { position: absolute; left: 0; right: 0; bottom: 100%; height: 12px; }
+    .ring { width: 28px; height: 28px; border-radius: 50%; border: 3px solid #2a5f8a; }
+    .card { position: absolute; bottom: calc(100% - 8px); left: 0; width: 260px; background: #fff; border: 1px solid #e4ddd4; border-radius: 12px; box-shadow: 0 8px 24px rgba(40, 30, 20, 0.12); padding: 10px 12px; }
+    .head { display: flex; gap: 8px; align-items: center; }
+    .row { margin-top: 10px; }
+    .meta { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; }
+    .track { height: 6px; background: #ece7e1; border-radius: 99px; overflow: hidden; margin: 4px 0; }
+    .fill { height: 100%; background: #2a5f8a; }
+    .sub { font-size: 12px; color: #5c564e; }
+    .stale { margin: 6px 0 0; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <p class="banner">示例，不是 DeepSeek Harness 真机画面。数字是虚构的，用来看卡片布局。圆环最多两个，卡片可以列出更多窗口。</p>
+  <div class="dock">
+    <div class="wrap">
+    <div class="bridge" aria-hidden="true"></div>
+    <div class="card" role="tooltip">
+      <div class="head">
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="#2a5f8a"></circle></svg>
+        <strong>示例服务商</strong>
+      </div>
+      <p class="stale">数据较旧 2026-11-12T00:00:00.000Z 示例原因</p>
+      <div class="row">
+        <div class="meta"><span>模型 · 短周期</span><span>剩余 62%</span></div>
+        <div class="track"><div class="fill" style="width:62%"></div></div>
+        <div class="sub">距重置 3小时5分</div>
+      </div>
+      <div class="row">
+        <div class="meta"><span>模型 · 长周期</span><span>剩余 41%</span></div>
+        <div class="track"><div class="fill" style="width:41%"></div></div>
+        <div class="sub">距重置 未知</div>
+      </div>
+      <div class="row">
+        <div class="meta"><span>工具（月额度） · 示例工具</span><span>剩余 未知</span></div>
+        <div class="track"></div>
+        <div class="sub">距重置 未知</div>
+        <div class="sub">数量 3/10</div>
+      </div>
+    </div>
+    <div class="ring" aria-label="示例圆环"></div>
+    </div>
+  </div>
+</body>
+</html>
